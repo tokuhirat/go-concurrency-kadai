@@ -12,14 +12,15 @@ type SafeUrlMap struct {
 	mu      sync.Mutex
 }
 
-func (m *SafeUrlMap) Visit(url string) {
+func (m *SafeUrlMap) Visit(url string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.visited[url] {
-		return
+		return true
 	}
 	m.visited[url] = true
+	return false
 }
 
 // URLを受け取り、そのページに含まれるリンク（文字列のスライス）を返します
@@ -39,7 +40,7 @@ func fetch(url string) []string {
 	return links[url]
 }
 
-func Crawl(url string, wg *sync.WaitGroup) {
+func Crawl(url string, visitedLinks *SafeUrlMap, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	fmt.Println("取得開始:", url)
@@ -52,8 +53,12 @@ func Crawl(url string, wg *sync.WaitGroup) {
 	select {
 	case links := <-ch:
 		for _, link := range links {
+			if visitedLinks.Visit(link) {
+				fmt.Println("重複スキップ:", link)
+				continue
+			}
 			wg.Add(1)
-			go Crawl(link, wg)
+			go Crawl(link, visitedLinks, wg)
 		}
 	case <-time.After(1 * time.Second):
 		fmt.Println("タイムアウト:", url)
@@ -62,8 +67,9 @@ func Crawl(url string, wg *sync.WaitGroup) {
 
 func main() {
 	var wg sync.WaitGroup
+	visitedLinks := SafeUrlMap{visited: make(map[string]bool)}
 
 	wg.Add(1)
-	go Crawl("https://example.com", &wg)
+	go Crawl("https://example.com", &visitedLinks, &wg)
 	wg.Wait()
 }
