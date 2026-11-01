@@ -52,6 +52,7 @@ func Crawl(url string, visitedLinks *SafeUrlMap, wg *sync.WaitGroup) {
 
 	select {
 	case links := <-ch:
+		fmt.Printf("取得成功: %s -> リンク数： %d\n", url, len(links))
 		for _, link := range links {
 			if visitedLinks.Visit(link) {
 				fmt.Println("重複スキップ:", link)
@@ -72,4 +73,5 @@ func main() {
 	wg.Add(1)
 	go Crawl("https://example.com", &visitedLinks, &wg)
 	wg.Wait()
+	fmt.Println("すべてのクロールが完了しました")
 }
