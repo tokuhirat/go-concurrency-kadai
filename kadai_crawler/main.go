@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -36,4 +37,25 @@ func fetch(url string) []string {
 	}
 
 	return links[url]
+}
+
+func Crawl(url string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	fmt.Println("取得開始:", url)
+	ch := make(chan []string, 1)
+
+	go func() {
+		ch <- fetch(url)
+	}()
+
+	select {
+	case links := <-ch:
+		for _, link := range links {
+			wg.Add(1)
+			go Crawl(link, wg)
+		}
+	case <-time.After(1 * time.Second):
+		fmt.Println("タイムアウト:", url)
+	}
 }
