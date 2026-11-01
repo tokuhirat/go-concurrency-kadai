@@ -59,3 +59,11 @@ func Crawl(url string, wg *sync.WaitGroup) {
 		fmt.Println("タイムアウト:", url)
 	}
 }
+
+func main() {
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go Crawl("https://example.com", &wg)
+	wg.Wait()
+}
