@@ -42,6 +42,10 @@ func fetch(url string) []string {
 
 func Crawl(url string, visitedLinks *SafeUrlMap, wg *sync.WaitGroup) {
 	defer wg.Done()
+	if visitedLinks.Visit(url) {
+		fmt.Println("重複スキップ:", url)
+		return
+	}
 
 	fmt.Println("取得開始:", url)
 	ch := make(chan []string, 1)
@@ -54,10 +58,6 @@ func Crawl(url string, visitedLinks *SafeUrlMap, wg *sync.WaitGroup) {
 	case links := <-ch:
 		fmt.Printf("取得成功: %s -> リンク数： %d\n", url, len(links))
 		for _, link := range links {
-			if visitedLinks.Visit(link) {
-				fmt.Println("重複スキップ:", link)
-				continue
-			}
 			wg.Add(1)
 			go Crawl(link, visitedLinks, wg)
 		}
