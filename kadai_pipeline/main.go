@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 )
 
 // テスト用のダミーファイルを作成する関数
@@ -78,7 +80,8 @@ func countFileWords(path string) (int, error) {
 	return cnt, nil
 }
 
-func countWords(ctx context.Context, paths <-chan string, numWords chan<- int) error {
+func countWords(ctx context.Context, paths <-chan string, numWords chan<- int, wg *sync.WaitGroup) error {
+	defer wg.Done()
 	for {
 		select {
 		case path, ok := <-paths:
@@ -96,4 +99,43 @@ func countWords(ctx context.Context, paths <-chan string, numWords chan<- int) e
 			return ctx.Err()
 		}
 	}
+}
+
+func main() {
+	const root string = "./"
+	err := generateDummyFiles(root)
+	if err != nil {
+		fmt.Println("テストデータ生成に失敗しました")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	paths := make(chan string)
+	numWords := make(chan int)
+
+	go findFiles(ctx, root, paths)
+
+	numWorker := 4
+	var wg sync.WaitGroup
+	wg.Add(numWorker)
+	for range numWorker {
+		go countWords(ctx, paths, numWords, &wg)
+	}
+
+	go func() {
+		wg.Wait()
+		close(numWords)
+	}()
+
+	totalNumWords := 0
+	numFiles := 0
+	for count := range numWords {
+		numFiles++
+		totalNumWords += count
+	}
+	fmt.Println("処理完了")
+	fmt.Printf("処理ファイル数: %d\n", numFiles)
+	fmt.Printf("総単語数: %d\n", totalNumWords)
 }
