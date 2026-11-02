@@ -115,10 +115,12 @@ func main() {
 	paths := make(chan string)
 	numWords := make(chan int)
 
-	go findFiles(ctx, root, paths)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		findFiles(ctx, root, paths)
+	})
 
 	numWorker := 4
-	var wg sync.WaitGroup
 	wg.Add(numWorker)
 	for range numWorker {
 		go countWords(ctx, paths, numWords, &wg)
