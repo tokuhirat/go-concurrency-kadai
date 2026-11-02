@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io/fs"
@@ -54,4 +55,45 @@ func findFiles(ctx context.Context, root string, paths chan<- string) error {
 		return err
 	}
 	return nil
+}
+
+func countFileWords(path string) (int, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanWords)
+
+	cnt := 0
+	for scanner.Scan() {
+		cnt++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	return cnt, nil
+}
+
+func countWords(ctx context.Context, paths <-chan string, numWords chan<- int) error {
+	for {
+		select {
+		case path, ok := <-paths:
+			if !ok {
+				return nil
+			}
+
+			cnt, err := countFileWords(path)
+			if err != nil {
+				return err
+			}
+			numWords <- cnt
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
