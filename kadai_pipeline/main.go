@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +22,36 @@ func generateDummyFiles(dir string) error {
 		if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func findFiles(ctx context.Context, root string, paths chan<- string) error {
+	defer close(paths)
+
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// ディレクトリはスキップ
+		if d.IsDir() {
+			return nil
+		}
+		// .txtファイルのみ対象
+		if filepath.Ext(path) == ".txt" {
+			select {
+			case <-ctx.Done():
+				// キャンセルされたら探索を打ち切る
+				return ctx.Err()
+			case paths <- path: // パスを送信
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("探索エラー: %v\n", err)
+		return err
 	}
 	return nil
 }
